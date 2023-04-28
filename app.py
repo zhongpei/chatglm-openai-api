@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from fastapi import FastAPI, HTTPException, Request, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,7 +38,7 @@ class ChatBody(BaseModel):
 
 
 class EmbeddingsBody(BaseModel):
-    input: str | List[str]
+    input: Any
     model: str
     encoding_format: str | None
 
@@ -161,13 +161,23 @@ async def embeddings(body: EmbeddingsBody, request: Request, background_tasks: B
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Embeddings model not found!")
 
     embeddings = context.embeddings_model.encode(body.input)
-    content = {
-        "object": "list",
-        "data": [{
+    data = []
+    if isinstance(body.input, str):
+        data.append({
             "object": "embedding",
             "index": 0,
             "embedding": embeddings.tolist(),
-        }],
+        })
+    else:
+        for i, embed in enumerate(embeddings):
+            data.append({
+                "object": "embedding",
+                "index": i,
+                "embedding": embed.tolist(),
+            })
+    content = {
+        "object": "list",
+        "data": data,
         "model": "text-embedding-ada-002-v2",
         "usage": {
             "prompt_tokens": 0,
